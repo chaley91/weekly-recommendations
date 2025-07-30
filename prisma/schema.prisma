@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  firstName     String?
+  lastName      String?
+  joinDate      DateTime @default(now())
+  inviteCount   Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  submissions     Submission[]
+  sentInvites     Invite[]     @relation("InviterInvites")
+  receivedInvites Invite[]     @relation("InviteeInvites")
+  streak          UserStreak?
+
+  @@map("users")
+}
+
+model Week {
+  id         Int      @id @default(autoincrement())
+  weekNumber Int      @unique // Format: YYYYWW (e.g., 202530)
+  startDate  DateTime
+  deadline   DateTime
+  status     String   @default("open") // open, closed, compiled
+  createdAt  DateTime @default(now())
+
+  // Relations
+  submissions Submission[]
+
+  @@map("weeks")
+}
+
+model Submission {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  weekId         Int
+  recommendation String
+  reasons        String
+  message        String
+  submittedAt    DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  week Week @relation(fields: [weekId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekId])
+  @@map("submissions")
+}
+
+model Invite {
+  id           Int      @id @default(autoincrement())
+  inviterId    Int
+  inviteeEmail String
+  inviteToken  String   @unique
+  status       String   @default("pending") // pending, accepted, expired
+  sentAt       DateTime @default(now())
+  expiresAt    DateTime
+  acceptedAt   DateTime?
+
+  // Relations
+  inviter User  @relation("InviterInvites", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee User? @relation("InviteeInvites", fields: [inviteeEmail], references: [email])
+
+  @@map("invites")
+}
+
+model UserStreak {
+  id                  Int      @id @default(autoincrement())
+  userId              Int      @unique
+  currentStreak       Int      @default(0)
+  longestStreak       Int      @default(0)
+  lastSubmissionWeek  Int?
+  canInvite          Boolean  @default(false)
+  inviteEligibleSince DateTime?
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_streaks")
+}
+
+model SystemSettings {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  value String
+
+  @@map("system_settings")
+}
